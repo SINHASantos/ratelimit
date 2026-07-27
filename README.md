@@ -69,6 +69,7 @@
   - [One Redis Instance](#one-redis-instance)
   - [Two Redis Instances](#two-redis-instances)
   - [Health Checking for Redis Active Connection](#health-checking-for-redis-active-connection)
+  - [Recovering from a failover (READONLY errors)](#recovering-from-a-failover-readonly-errors)
 - [Memcache](#memcache)
 - [Custom headers](#custom-headers)
 - [Tracing](#tracing)
@@ -1377,6 +1378,23 @@ per second limits, and the other Redis server for all other limits.
 To configure whether to return health check failure if there is no active redis connection
 
 1. `REDIS_HEALTH_CHECK_ACTIVE_CONNECTION` : (default is "false")
+
+## Recovering from a failover (READONLY errors)
+
+1. `REDIS_CLOSE_CONNECTION_ON_READONLY_ERROR` : (default is "false")
+
+When a Redis master is failed over by repointing an address at the new master (a Kubernetes
+Service, DNS, or a proxy — common with Redis-compatible servers like Dragonfly, or Redis
+deployments without Sentinel), the demoted master keeps already-established connections open.
+Pooled connections are only discarded on IO errors, so every write on those stale connections
+keeps failing with `READONLY You can't write against a read only replica.` until the process
+restarts.
+
+Setting `REDIS_CLOSE_CONNECTION_ON_READONLY_ERROR` to `"true"` closes a pooled connection
+whenever a command on it fails with a READONLY error reply, so the pool reconnects through the
+configured address and reaches the current master. The failing command still returns its error
+to the caller; only the connection handling changes. Applies to both the main and the
+per-second Redis clients.
 
 # Memcache
 
